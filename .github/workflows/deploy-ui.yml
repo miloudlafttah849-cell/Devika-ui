@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - './**'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build-and-deploy:
@@ -20,21 +21,24 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        working-directory: ./ui
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build UI
-        working-directory: ./ui
         run: bun run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 
       - name: Deploy to Netlify
         uses: nwtgck/actions-netlify@v3.0
         with:
-          publish-dir: 'ui/dist'
+          publish-dir: 'build'
           production-branch: main
+          production-deploy: ${{ github.ref == 'refs/heads/main' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy ${{ github.sha }}"
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
