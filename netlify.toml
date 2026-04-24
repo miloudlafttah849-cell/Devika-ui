@@ -1,0 +1,22 @@
+# Netlify configuration for the Devika UI.
+#
+# The primary deploy path is the GitHub Actions workflow in
+# .github/workflows/deploy-ui.yml, which builds and uploads the `build/`
+# directory via netlify-actions. This file is here as a fallback so that
+# connecting the repo directly to Netlify's git integration also works.
+
+[build]
+  command = "bun install --frozen-lockfile && bun run build"
+  publish = "build"
+
+[build.environment]
+  # Netlify picks a recent Node by default; pin to avoid surprises. Bun is
+  # installed via the Nix packages layer below.
+  NODE_VERSION = "20"
+
+# SPA fallback — every unknown path serves index.html so the SvelteKit client
+# router can take over (adapter-static with fallback: index.html).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
