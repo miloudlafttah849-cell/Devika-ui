@@ -14,6 +14,27 @@
   # installed via the Nix packages layer below.
   NODE_VERSION = "20"
 
+# Per-deploy-context env. The Vite build inlines VITE_* into the bundle,
+# so we set it differently for production vs staging branch deploys.
+[context.production.environment]
+  VITE_API_BASE_URL = "https://octoborg-devika-core.hf.space"
+
+# Branch deploys (any branch other than main, e.g. `staging`) point at the
+# staging HF Space if it exists. If the staging Space is not yet provisioned,
+# this URL just returns 404 until it is.
+[context.branch-deploy.environment]
+  VITE_API_BASE_URL = "https://octoborg-devika-core-staging.hf.space"
+
+# Explicit override for the `staging` branch (same value as branch-deploy
+# above, but pinning it makes the intent obvious).
+[context.staging.environment]
+  VITE_API_BASE_URL = "https://octoborg-devika-core-staging.hf.space"
+
+# Deploy previews from PRs hit the production backend by default — useful
+# for UI-only changes where you want to test against real prod data.
+[context.deploy-preview.environment]
+  VITE_API_BASE_URL = "https://octoborg-devika-core.hf.space"
+
 # SPA fallback — every unknown path serves index.html so the SvelteKit client
 # router can take over (adapter-static with fallback: index.html).
 [[redirects]]
