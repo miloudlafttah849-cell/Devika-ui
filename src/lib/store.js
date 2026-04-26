@@ -58,6 +58,7 @@ export const panesVisible = writable({
     browser: false,
     terminal: false,
     editor: false,
+    git: false,
 });
 
 // On mobile, the currently-active single pane (one of: messages | browser | terminal | editor).
@@ -69,3 +70,9 @@ export const isDesktop = writable(false);
 
 // Whether the mobile sidebar drawer is open.
 export const sidebarOpen = writable(false);
+
+// Git activity stream — populated by the backend's `git` socket.io events.
+// Each entry: { event, ...payload, ts: number }. UI's Git tab renders the
+// running log + uses /api/git-status for the static snapshot.
+export const gitEvents = writable([]);
+export const gitStatus = writable(null);

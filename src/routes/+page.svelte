@@ -8,6 +8,7 @@
   import BrowserWidget from "$lib/components/BrowserWidget.svelte";
   import TerminalWidget from "$lib/components/TerminalWidget.svelte";
   import EditorWidget from "$lib/components/EditorWidget.svelte";
+  import GitWidget from "$lib/components/GitWidget.svelte";
   import PaneToggle from "$lib/components/PaneToggle.svelte";
 
   import { serverStatus, panesVisible, activePane, isDesktop } from "$lib/store";
@@ -37,9 +38,10 @@
   $: showBrowser = $isDesktop ? $panesVisible.browser : $activePane === "browser";
   $: showTerminal = $isDesktop ? $panesVisible.terminal : $activePane === "terminal";
   $: showEditor = $isDesktop ? $panesVisible.editor : $activePane === "editor";
+  $: showGit = $isDesktop ? $panesVisible.git : $activePane === "git";
 
   // Count non-messages right-side panes for desktop split sizing.
-  $: rightPaneCount = [showBrowser, showTerminal, showEditor].filter(Boolean).length;
+  $: rightPaneCount = [showBrowser, showTerminal, showEditor, showGit].filter(Boolean).length;
   $: hasRightSide = $isDesktop && rightPaneCount > 0;
 </script>
 
@@ -63,7 +65,7 @@
     {/if}
 
     <!-- Right side: browser / terminal / editor stack on desktop -->
-    {#if hasRightSide || (!$isDesktop && (showBrowser || showTerminal || showEditor))}
+    {#if hasRightSide || (!$isDesktop && (showBrowser || showTerminal || showEditor || showGit))}
       <section
         class="flex flex-col min-w-0 min-h-0 flex-1 gap-2 overflow-hidden"
         aria-label="Workspace"
@@ -81,6 +83,11 @@
         {#if showEditor}
           <div class="flex-1 min-h-0 overflow-hidden">
             <EditorWidget />
+          </div>
+        {/if}
+        {#if showGit}
+          <div class="flex-1 min-h-0 overflow-hidden">
+            <GitWidget />
           </div>
         {/if}
       </section>
