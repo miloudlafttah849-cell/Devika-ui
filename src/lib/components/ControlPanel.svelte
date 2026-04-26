@@ -79,15 +79,42 @@
     if (!e.target.closest("[data-cp-dropdown]")) close();
   }
 
+  // Subscribe to serverStatus so we kick off the initial fetch the moment the
+  // parent +page.svelte confirms the backend is reachable. Doing this in
+  // onMount with a one-shot `if ($serverStatus)` check races with the parent's
+  // async checkServerStatus() and the dropdowns end up empty on first paint.
+  let dataLoaded = false;
+  const unsubServer = serverStatus.subscribe(async (online) => {
+    if (online && !dataLoaded) {
+      dataLoaded = true;
+      try {
+        await fetchInitialData();
+      } catch (e) {
+        console.error("fetchInitialData failed:", e);
+      }
+    }
+  });
+
+  // After modelList loads, drop any stale localStorage selection that no
+  // longer matches a current provider/model id. Otherwise the agent will
+  // crash server-side with "Model X not supported" the moment the user
+  // sends a message (e.g. after Groq decommissions an old llama model).
+  $: if ($modelList && Object.keys($modelList).length > 0) {
+    const validIds = Object.values($modelList)
+      .flat()
+      .map((m) => (Array.isArray(m) ? m[0] : m));
+    if ($selectedModel && $selectedModel !== "select model" && !validIds.includes($selectedModel)) {
+      console.warn(`Stale selectedModel "${$selectedModel}" not in current modelList; clearing.`);
+      $selectedModel = "select model";
+    }
+  }
+
   onMount(() => {
-    (async () => {
-      // serverStatus is a writable store — must dereference to read its boolean.
-      if ($serverStatus) await fetchInitialData();
-    })();
     document.addEventListener("click", handleOutsideClick);
   });
   onDestroy(() => {
     document.removeEventListener("click", handleOutsideClick);
+    unsubServer();
   });
 </script>
 
@@ -218,7 +245,11 @@
           class="absolute right-0 top-full z-30 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
           role="menu"
         >
-          {#if $modelList}
+          {#if !$modelList || Object.keys($modelList).length === 0}
+            <p class="px-3 py-3 text-xs text-tertiary">
+              {$serverStatus ? "Loading models…" : "Connecting to server…"}
+            </p>
+          {:else}
             {#each Object.entries($modelList) as [providerName, providerModels]}
               {#if providerModels && providerModels.length}
                 <div class="border-b border-border last:border-b-0">
@@ -267,7 +298,11 @@
         class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
         role="menu"
       >
-        {#if $modelList}
+        {#if !$modelList || Object.keys($modelList).length === 0}
+          <p class="px-3 py-3 text-xs text-tertiary">
+            {$serverStatus ? "Loading models…" : "Connecting to server…"}
+          </p>
+        {:else}
           {#each Object.entries($modelList) as [providerName, providerModels]}
             {#if providerModels && providerModels.length}
               <div class="border-b border-border last:border-b-0">
@@ -291,6 +326,7 @@
     {/if}
   </div>
 </header>
+
 
 <style>
   .online {
