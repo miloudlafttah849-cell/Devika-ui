@@ -81,7 +81,8 @@
 
   onMount(() => {
     (async () => {
-      if (serverStatus) await fetchInitialData();
+      // serverStatus is a writable store — must dereference to read its boolean.
+      if ($serverStatus) await fetchInitialData();
     })();
     document.addEventListener("click", handleOutsideClick);
   });

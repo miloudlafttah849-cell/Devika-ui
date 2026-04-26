@@ -9,11 +9,12 @@
   let mq;
   function syncDesktop(e) {
     isDesktop.set(e.matches);
-    // When switching to desktop, default to messages + browser visible.
+    // When switching to desktop, force messages + browser visible by default.
+    // Preserve any user-set state for terminal/editor (they're off by default).
     if (e.matches) {
       panesVisible.update((p) => ({
         messages: true,
-        browser: p.browser || true,
+        browser: true,
         terminal: p.terminal,
         editor: p.editor,
       }));
