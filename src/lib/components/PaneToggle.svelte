@@ -10,6 +10,7 @@
     { id: "browser", label: "Browser", icon: Icons.Globe },
     { id: "terminal", label: "Terminal", icon: Icons.Terminal },
     { id: "editor", label: "Editor", icon: Icons.Code },
+    { id: "git", label: "Git", icon: Icons.GitBranch },
   ];
 
   function handleClick(id) {

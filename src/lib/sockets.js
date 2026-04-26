@@ -1,5 +1,5 @@
 import { socket } from "./api";
-import { messages, agentState, isSending, tokenUsage } from "./store";
+import { messages, agentState, isSending, tokenUsage, gitEvents } from "./store";
 import { toast } from "svelte-sonner";
 import { get } from "svelte/store";
 
@@ -54,6 +54,15 @@ export function initializeSockets() {
     }
   });
 
+  socket.on("git", function (payload) {
+    gitEvents.update((evts) => [...evts, { ...payload, ts: Date.now() }]);
+    if (payload?.event === "pr-opened" && payload.url) {
+      toast.success(`PR opened: ${payload.url}`);
+    } else if (payload?.event === "clone-error" || payload?.event === "error" || payload?.event === "pr-error") {
+      toast.error(payload.error || "Git operation failed");
+    }
+  });
+
   
   agentState.subscribe((state) => {
     function handleMonologueChange(newValue) {
@@ -80,6 +89,7 @@ export function destroySockets() {
     socket.off("tokens");
     socket.off("inference");
     socket.off("info");
+    socket.off("git");
   }
 }
 

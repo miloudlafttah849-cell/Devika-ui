@@ -163,3 +163,11 @@ export async function fetchLogs() {
   const data = await response.json();
   return data.logs;
 }
+
+export async function fetchGitStatus(projectName) {
+  if (!projectName || projectName === "select project") return null;
+  const url = `${API_BASE_URL}/api/git-status?project_name=${encodeURIComponent(projectName)}`;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return await response.json();
+}
