@@ -1,7 +1,8 @@
 <script>
   import DOMPurify from "dompurify";
+  import { toast } from "svelte-sonner";
   import { emitMessage, socketListener } from "$lib/sockets";
-  import { agentState, messages, isSending } from "$lib/store";
+  import { agentState, messages, isSending, modelList, selectedModel } from "$lib/store";
   import { calculateTokens } from "$lib/token";
   import { onMount } from "svelte";
   import { Icons } from "$lib/icons";
@@ -32,16 +33,34 @@
 
   async function handleSendMessage() {
     const projectName = localStorage.getItem("selectedProject");
-    const selectedModel = localStorage.getItem("selectedModel");
+    const modelId = $selectedModel || localStorage.getItem("selectedModel");
     const searchEngine = localStorage.getItem("selectedSearchEngine");
 
     if (!projectName || projectName === "select project") {
-      alert("Please select a project first!");
+      toast.error("Please select a project first.");
       return;
     }
-    if (!selectedModel || selectedModel === "select model") {
-      alert("Please select a model first!");
+    if (!modelId || modelId === "select model") {
+      toast.error("Please pick a model from the model dropdown.");
       return;
+    }
+
+    // Validate model against the live modelList. Catches the case where a
+    // user has a stale localStorage entry for a decommissioned model
+    // (e.g. Groq's old llama3-8b-8192). The backend would otherwise raise
+    // ValueError("Model X not supported") in a thread and silently drop
+    // the request — no user feedback at all.
+    const ml = $modelList;
+    if (ml && Object.keys(ml).length > 0) {
+      const validIds = Object.values(ml)
+        .flat()
+        .map((m) => (Array.isArray(m) ? m[0] : m));
+      if (!validIds.includes(modelId)) {
+        toast.error(
+          `Model "${modelId}" is no longer available. Pick another model from the dropdown.`,
+        );
+        return;
+      }
     }
 
     const sanitizedMessage = DOMPurify.sanitize(messageInput);
@@ -51,7 +70,7 @@
       $isSending = true;
       emitMessage("user-message", {
         message: escapedMessage,
-        base_model: selectedModel,
+        base_model: modelId,
         project_name: projectName,
         search_engine: searchEngine,
       });

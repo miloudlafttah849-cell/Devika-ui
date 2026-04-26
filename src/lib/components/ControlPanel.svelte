@@ -79,15 +79,44 @@
     if (!e.target.closest("[data-cp-dropdown]")) close();
   }
 
+  // Subscribe to serverStatus so we kick off the initial fetch the moment the
+  // parent +page.svelte confirms the backend is reachable. Doing this in
+  // onMount with a one-shot `if ($serverStatus)` check races with the parent's
+  // async checkServerStatus() and the dropdowns end up empty on first paint.
+  let dataLoaded = false;
+  const unsubServer = serverStatus.subscribe(async (online) => {
+    if (online && !dataLoaded) {
+      dataLoaded = true;
+      try {
+        await fetchInitialData();
+      } catch (e) {
+        // Allow a retry on the next serverStatus toggle (transient errors).
+        dataLoaded = false;
+        console.error("fetchInitialData failed:", e);
+      }
+    }
+  });
+
+  // After modelList loads, drop any stale localStorage selection that no
+  // longer matches a current provider/model id. Otherwise the agent will
+  // crash server-side with "Model X not supported" the moment the user
+  // sends a message (e.g. after Groq decommissions an old llama model).
+  $: if ($modelList && Object.keys($modelList).length > 0) {
+    const validIds = Object.values($modelList)
+      .flat()
+      .map((m) => (Array.isArray(m) ? m[0] : m));
+    if ($selectedModel && $selectedModel !== "select model" && !validIds.includes($selectedModel)) {
+      console.warn(`Stale selectedModel "${$selectedModel}" not in current modelList; clearing.`);
+      $selectedModel = "select model";
+    }
+  }
+
   onMount(() => {
-    (async () => {
-      // serverStatus is a writable store — must dereference to read its boolean.
-      if ($serverStatus) await fetchInitialData();
-    })();
     document.addEventListener("click", handleOutsideClick);
   });
   onDestroy(() => {
     document.removeEventListener("click", handleOutsideClick);
+    unsubServer();
   });
 </script>
 
@@ -218,7 +247,11 @@
           class="absolute right-0 top-full z-30 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
           role="menu"
         >
-          {#if $modelList}
+          {#if !$modelList || Object.keys($modelList).length === 0}
+            <p class="px-3 py-3 text-xs text-tertiary">
+              {$serverStatus ? "Loading models…" : "Connecting to server…"}
+            </p>
+          {:else}
             {#each Object.entries($modelList) as [providerName, providerModels]}
               {#if providerModels && providerModels.length}
                 <div class="border-b border-border last:border-b-0">
@@ -244,8 +277,8 @@
     </div>
   </div>
 
-  <!-- Mobile right cluster: just internet + model in a compact menu -->
-  <div class="flex md:hidden items-center gap-2" data-cp-dropdown>
+  <!-- Mobile right cluster: internet + search engine + model -->
+  <div class="flex md:hidden items-center gap-2">
     <div class="flex items-center gap-1 text-xs text-tertiary">
       <span
         class="size-2 rounded-full"
@@ -253,44 +286,88 @@
         class:offline={!$internet}
       ></span>
     </div>
-    <button
-      type="button"
-      class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[40vw]"
-      aria-expanded={openDropdown === "model"}
-      on:click|stopPropagation={() => toggle("model")}
-    >
-      <span class="truncate">{$selectedModel || "Model"}</span>
-      <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
-    </button>
-    {#if openDropdown === "model"}
-      <div
-        class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
-        role="menu"
+
+    <!-- Mobile search engine selector -->
+    <div class="relative" data-cp-dropdown>
+      <button
+        type="button"
+        class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[28vw]"
+        aria-expanded={openDropdown === "search"}
+        on:click|stopPropagation={() => toggle("search")}
       >
-        {#if $modelList}
-          {#each Object.entries($modelList) as [providerName, providerModels]}
-            {#if providerModels && providerModels.length}
-              <div class="border-b border-border last:border-b-0">
-                <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
-                  {providerName.toLowerCase()}
+        <span class="truncate">{$selectedSearchEngine || "Search"}</span>
+        <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
+      </button>
+      {#if openDropdown === "search"}
+        <div
+          class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
+          role="menu"
+        >
+          {#if !$searchEngineList || $searchEngineList.length === 0}
+            <p class="px-3 py-3 text-xs text-tertiary">
+              {$serverStatus ? "Loading search engines…" : "Connecting to server…"}
+            </p>
+          {:else}
+            {#each $searchEngineList as engine}
+              <button
+                class="flex w-full items-center px-3 py-2.5 text-sm hover:bg-black/10"
+                class:bg-black-10={$selectedSearchEngine === engine}
+                on:click|stopPropagation={() => selectSearchEngine(engine)}
+              >
+                {engine}
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Mobile model selector -->
+    <div class="relative" data-cp-dropdown>
+      <button
+        type="button"
+        class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[40vw]"
+        aria-expanded={openDropdown === "model"}
+        on:click|stopPropagation={() => toggle("model")}
+      >
+        <span class="truncate">{$selectedModel || "Model"}</span>
+        <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
+      </button>
+      {#if openDropdown === "model"}
+        <div
+          class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
+          role="menu"
+        >
+          {#if !$modelList || Object.keys($modelList).length === 0}
+            <p class="px-3 py-3 text-xs text-tertiary">
+              {$serverStatus ? "Loading models…" : "Connecting to server…"}
+            </p>
+          {:else}
+            {#each Object.entries($modelList) as [providerName, providerModels]}
+              {#if providerModels && providerModels.length}
+                <div class="border-b border-border last:border-b-0">
+                  <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+                    {providerName.toLowerCase()}
+                  </div>
+                  {#each providerModels as model}
+                    <button
+                      class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
+                      on:click|stopPropagation={() => selectModel(model[0])}
+                    >
+                      <span class="font-medium">{model[0]}</span>
+                      <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
+                    </button>
+                  {/each}
                 </div>
-                {#each providerModels as model}
-                  <button
-                    class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
-                    on:click|stopPropagation={() => selectModel(model[0])}
-                  >
-                    <span class="font-medium">{model[0]}</span>
-                    <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          {/each}
-        {/if}
-      </div>
-    {/if}
+              {/if}
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    </div>
   </div>
 </header>
+
 
 <style>
   .online {
