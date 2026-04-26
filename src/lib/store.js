@@ -46,3 +46,26 @@ export const isSending = writable(false);
 
 // Token usage store
 export const tokenUsage = writable(0);
+
+// Layout / pane visibility (mobile-first responsive UI).
+//
+// - On mobile (<lg) only ONE pane is visible at a time — toggles act as radio.
+// - On desktop (>=lg) any combination of panes can be visible — toggles act as checkbox.
+// The `+page.svelte` layout is responsible for interpreting these flags
+// according to viewport size; the store just tracks user intent.
+export const panesVisible = writable({
+    messages: true,
+    browser: false,
+    terminal: false,
+    editor: false,
+});
+
+// On mobile, the currently-active single pane (one of: messages | browser | terminal | editor).
+export const activePane = writable('messages');
+
+// Reactive viewport flag. Starts `false` for SSR safety; +layout.svelte
+// updates it on mount via matchMedia and a resize listener.
+export const isDesktop = writable(false);
+
+// Whether the mobile sidebar drawer is open.
+export const sidebarOpen = writable(false);

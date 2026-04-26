@@ -5,12 +5,13 @@
 	export let icon; 
 </script>
 
-<a {href}>
+<a {href} on:click>
 	<div class="nav-button relative">
 		<button
 			class={`flex justify-center w-full hover:transition-colors ${
 				isSelected ? 'text-btn-active' : 'text-tertiary'
 			}`}
+			aria-label={tooltip}
 		>
 		{@html icon}
 		</button>
