@@ -90,6 +90,8 @@
       try {
         await fetchInitialData();
       } catch (e) {
+        // Allow a retry on the next serverStatus toggle (transient errors).
+        dataLoaded = false;
         console.error("fetchInitialData failed:", e);
       }
     }
