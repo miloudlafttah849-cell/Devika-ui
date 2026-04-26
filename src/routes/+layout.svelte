@@ -13,10 +13,9 @@
     // Preserve any user-set state for terminal/editor (they're off by default).
     if (e.matches) {
       panesVisible.update((p) => ({
+        ...p,
         messages: true,
         browser: true,
-        terminal: p.terminal,
-        editor: p.editor,
       }));
     }
   }
