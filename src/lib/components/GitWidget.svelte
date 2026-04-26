@@ -5,14 +5,21 @@
   import { Icons } from "$lib/icons";
 
   let pollHandle = null;
+  // Generation counter prevents stale fetches (older project / older interval
+  // tick) from clobbering newer ones. We only commit a response if its
+  // generation matches both the latest fetch AND the still-current project.
+  let gen = 0;
 
   async function refresh() {
-    const data = await fetchGitStatus($selectedProject);
+    const myGen = ++gen;
+    const project = $selectedProject;
+    const data = await fetchGitStatus(project);
+    if (myGen !== gen) return;          // a newer refresh has fired
+    if (project !== $selectedProject) return; // project changed mid-flight
     gitStatus.set(data);
   }
 
   onMount(() => {
-    refresh();
     // Re-poll every 5s while this tab is mounted; cheap.
     pollHandle = setInterval(refresh, 5000);
   });
@@ -20,7 +27,8 @@
     if (pollHandle) clearInterval(pollHandle);
   });
 
-  // Refresh when project changes or agent finishes a step.
+  // Refresh when project changes or agent finishes a step. The reactive
+  // statement also covers initial mount, so no separate onMount fetch.
   $: $selectedProject, refresh();
   $: $agentState, refresh();
 
