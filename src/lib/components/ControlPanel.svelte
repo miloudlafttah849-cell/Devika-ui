@@ -1,27 +1,58 @@
 <script>
-  import { onMount } from "svelte";
-  import { projectList, modelList, internet, tokenUsage, agentState, messages, searchEngineList, serverStatus, isSending, selectedProject, selectedModel, selectedSearchEngine} from "$lib/store";
-  import { createProject, fetchMessages, fetchInitialData, deleteProject,fetchProjectFiles, fetchAgentState} from "$lib/api";
-  import Seperator from "./ui/Seperator.svelte";
+  import { onDestroy, onMount } from "svelte";
+  import {
+    projectList,
+    modelList,
+    internet,
+    tokenUsage,
+    agentState,
+    messages,
+    searchEngineList,
+    serverStatus,
+    isSending,
+    selectedProject,
+    selectedModel,
+    selectedSearchEngine,
+    sidebarOpen,
+  } from "$lib/store";
+  import {
+    createProject,
+    fetchMessages,
+    fetchInitialData,
+    deleteProject,
+    fetchProjectFiles,
+    fetchAgentState,
+  } from "$lib/api";
+  import { Icons } from "$lib/icons";
+
+  // Dropdown open state — only one open at a time.
+  let openDropdown = null; // 'project' | 'model' | 'search' | null
+
+  function toggle(name) {
+    openDropdown = openDropdown === name ? null : name;
+  }
+  function close() {
+    openDropdown = null;
+  }
 
   function selectProject(project) {
     $selectedProject = project;
     fetchMessages();
     fetchAgentState();
     fetchProjectFiles();
-    document.getElementById("project-dropdown").classList.add("hidden");
+    close();
   }
   function selectModel(model) {
     $selectedModel = model;
-    document.getElementById("model-dropdown").classList.add("hidden");
+    close();
   }
-  function selectSearchEngine(searchEngine) {
-    $selectedSearchEngine = searchEngine;
-    document.getElementById("search-engine-dropdown").classList.add("hidden");
+  function selectSearchEngine(engine) {
+    $selectedSearchEngine = engine;
+    close();
   }
 
   async function createNewProject() {
-    const projectName = prompt('Enter the project name:');
+    const projectName = prompt("Enter the project name:");
     if (projectName) {
       await createProject(projectName);
       selectProject(projectName);
@@ -29,7 +60,6 @@
       messages.set([]);
       agentState.set(null);
       isSending.set(false);
-
     }
   }
   async function deleteproject(project) {
@@ -45,256 +75,231 @@
     }
   }
 
-  const dropdowns = [
-    { dropdown: "project-dropdown", button: "project-button" },
-    { dropdown: "model-dropdown", button: "model-button" },
-    { dropdown: "search-engine-dropdown", button: "search-engine-button" },
-  ];
-  function closeDropdowns(event) {
-    dropdowns.forEach(({ dropdown, button }) => {
-      const dropdownElement = document.getElementById(dropdown);
-      const buttonElement = document.getElementById(button);
-
-      if (
-        dropdownElement &&
-        buttonElement &&
-        !dropdownElement.contains(event.target) &&
-        !buttonElement.contains(event.target)
-      ) {
-        dropdownElement.classList.add("hidden");
-      }
-    });
+  function handleOutsideClick(e) {
+    if (!e.target.closest("[data-cp-dropdown]")) close();
   }
-  onMount(() => {
-    
-    (async () => {
-      if(serverStatus){
-        await fetchInitialData();
-      }
-    })();
 
-    dropdowns.forEach(({ dropdown, button }) => {
-      document.getElementById(button).addEventListener("click", function () {
-        const dropdownElement = document.getElementById(dropdown);
-        dropdownElement.classList.toggle("hidden");
-      });
-    });
-    document.addEventListener("click", closeDropdowns);
-    return () => {
-      document.removeEventListener("click", closeDropdowns);
-    };
+  onMount(() => {
+    (async () => {
+      // serverStatus is a writable store — must dereference to read its boolean.
+      if ($serverStatus) await fetchInitialData();
+    })();
+    document.addEventListener("click", handleOutsideClick);
   });
-  
+  onDestroy(() => {
+    document.removeEventListener("click", handleOutsideClick);
+  });
 </script>
 
-<div class="control-panel border-b border-border bg-background pb-3">
-  <div class="dropdown-menu relative inline-block">
+<header
+  class="flex items-center justify-between gap-2 border-b border-border bg-background px-2 py-2 md:px-4 md:py-3"
+>
+  <!-- Left cluster: hamburger (mobile) + project picker -->
+  <div class="flex items-center gap-2 min-w-0">
+    <!-- Mobile hamburger -->
     <button
       type="button"
-      class="inline-flex items-center justify-between w-full text-foreground h-10 gap-2 px-3 py-2 text-sm min-w-[200px] bg-secondary rounded-md"
-      id="project-button"
-      aria-expanded="true"
-      aria-haspopup="true"
+      aria-label="Open menu"
+      class="lg:hidden flex size-9 items-center justify-center rounded-md text-foreground hover:bg-secondary [&_svg]:size-5"
+      on:click={() => sidebarOpen.set(true)}
     >
-      <span id="selected-project">{$selectedProject}</span>
-      <i class="fas fa-angle-down text-tertiary"></i>
+      {@html Icons.Menu}
     </button>
-    <div
-      id="project-dropdown"
-      class="absolute left-0 z-10 mt-2 min-w-[200px] origin-top-left rounded-xl bg-secondary shadow-lg max-h-96 overflow-y-auto hidden"
-      role="menu"
-      aria-orientation="vertical"
-      aria-labelledby="project-button"
-      tabindex="-1"
-    >
-      <div role="none" class="flex flex-col divide-y-2  w-full">
-        <button
-          class="flex gap-2 items-center text-sm px-4 py-3 w-full"
-          on:click|preventDefault={createNewProject}
-        >
-          <i class="fas fa-plus"></i>
-          new project
-        </button>
-        {#if $projectList !== null}
-          {#each $projectList as project}
-            <div
-              class="flex items-center px-4 hover:bg-black/20 transition-colors">
-              <button
-                href="#"
-                class="flex gap-2 items-center text-sm py-3 w-full h-full overflow-x-visible"
-                on:click|preventDefault={() => selectProject(project)}
-              >
-                {project}
-              </button>
-              <button
-                class="fa-regular fa-trash-can hover:text-red-600"
-                on:click={() => deleteproject(project)}
-                aria-label="Delete project"
-              ></button>
-            </div>
-          {/each}
-        {/if}
-      </div>
-    </div>
-  </div>
-  <div
-    class=""
-    style="display: flex; align-items: center; gap: 20px"
-  >
-    <div class="flex items-center gap-2 text-sm">
-      <span>Internet:</span>
-      <span class=" size-3 rounded-full" class:online={$internet} class:offline={!$internet}></span>
-    </div>
 
-    <Seperator />
-
-    <div class="flex items-center gap-2 text-sm">
-      <span>Token Usage:</span>
-      <span id="token-count" class="token-count-animation text-foreground">{$tokenUsage}</span>
-    </div>
-    
-    <div class="relative inline-block text-left">
-      <div>
-        <button
-          type="button"
-          class="inline-flex items-center justify-between min-w-[200px] text-foreground w-fit gap-2 px-3 py-2 text-sm h-10 bg-secondary rounded-md"
-          id="search-engine-button"
-          aria-expanded="true"
-          aria-haspopup="true"
-        >
-          <span id="selected-search-engine">{$selectedSearchEngine}</span>
-          <i class="fas fa-angle-down text-tertiary"></i>
-        </button>
-      </div>
-
-      <div
-        id="search-engine-dropdown"
-        class="absolute left-0 z-10 mt-2 origin-top-right min-w-[200px] bg-secondary rounded-xl shadow-lg max-h-96 overflow-y-auto hidden"
-        role="menu"
-        aria-orientation="vertical"
-        aria-labelledby="search-engine-button"
-        tabindex="-1"
+    <!-- Project picker -->
+    <div class="relative min-w-0" data-cp-dropdown>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80 max-w-[60vw] sm:max-w-none"
+        aria-expanded={openDropdown === "project"}
+        on:click|stopPropagation={() => toggle("project")}
       >
-        <div role="none" class="flex flex-col divide-y-2 w-full">
-          {#if $searchEngineList !== null}
-            {#each $searchEngineList as engine}
-              <div
-                class="flex items-center px-4 hover:bg-black/20 transition-colors
-            {selectSearchEngine === engine ? 'bg-gray-300' : ''}"
-              >
+        <span class="truncate font-medium">{$selectedProject || "Select project"}</span>
+        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+      </button>
+      {#if openDropdown === "project"}
+        <div
+          class="absolute left-0 top-full z-30 mt-1 min-w-[220px] max-h-80 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
+          role="menu"
+        >
+          <button
+            class="flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-sm hover:bg-black/10"
+            on:click|stopPropagation={createNewProject}
+          >
+            <span class="[&_svg]:size-4">{@html Icons.Plus}</span>
+            New project
+          </button>
+          {#if $projectList && $projectList.length}
+            {#each $projectList as project}
+              <div class="flex items-center gap-2 px-3 hover:bg-black/10">
                 <button
-                  class="flex gap-2 items-center text-sm py-3 w-full text-clip"
-                  on:click|preventDefault={() => selectSearchEngine(engine)}
+                  class="flex-1 truncate py-2.5 text-left text-sm"
+                  on:click|stopPropagation={() => selectProject(project)}
                 >
-                  {engine}
+                  {project}
+                </button>
+                <button
+                  class="text-tertiary hover:text-red-500 [&_svg]:size-4"
+                  aria-label="Delete project {project}"
+                  on:click|stopPropagation={() => deleteproject(project)}
+                >
+                  {@html Icons.Trash}
                 </button>
               </div>
             {/each}
+          {:else}
+            <p class="px-3 py-2.5 text-xs text-tertiary">No projects yet</p>
           {/if}
         </div>
-      </div>
+      {/if}
     </div>
-    <div class="relative inline-block text-left">
-      <div>
-        <button
-          type="button"
-          class="inline-flex items-center text-foreground justify-between w-fit gap-x-1.5 min-w-[150px] px-3 py-2 text-sm h-10 bg-secondary rounded-md"
-          id="model-button"
-          aria-expanded="true"
-          aria-haspopup="true"
-        >
-          <span id="selected-model">{$selectedModel}</span>
-          <i class="fas fa-angle-down text-tertiary"></i>
-        </button>
-      </div>
+  </div>
 
-      <div
-        id="model-dropdown"
-        class="absolute right-0 z-10 mt-2 w-64 origin-top-right bg-secondary rounded-xl shadow-lg max-h-96 overflow-y-auto hidden"
-        role="menu"
-        aria-orientation="vertical"
-        aria-labelledby="model-button"
-        tabindex="-1"
+  <!-- Right cluster: status + selectors. Hidden on mobile (collapses into ⋮ menu). -->
+  <div class="hidden md:flex items-center gap-3">
+    <!-- Internet indicator -->
+    <div class="flex items-center gap-1.5 text-xs text-tertiary">
+      <span
+        class="size-2 rounded-full"
+        class:online={$internet}
+        class:offline={!$internet}
+      ></span>
+      <span>{$internet ? "Online" : "Offline"}</span>
+    </div>
+    <!-- Token usage -->
+    <div class="text-xs text-tertiary">
+      Tokens: <span class="text-foreground font-medium">{$tokenUsage}</span>
+    </div>
+
+    <!-- Search engine selector -->
+    <div class="relative" data-cp-dropdown>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80"
+        aria-expanded={openDropdown === "search"}
+        on:click|stopPropagation={() => toggle("search")}
       >
-        {#if $modelList !== null}
-          <div class="flex flex-col divide-y-2">
-            {#each Object.entries($modelList) as [modelName, modelItems]}
-              <div class="flex flex-col py-4 gap-2" role="none">
-                <span class="text-sm px-4 w-full font-semibold"
-                  >{modelName.toLowerCase()}</span
-                >
-                <div class="flex flex-col gap-[1px] px-6 w-full">
-                  {#each modelItems as models}
+        <span class="truncate">{$selectedSearchEngine || "Search engine"}</span>
+        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+      </button>
+      {#if openDropdown === "search"}
+        <div
+          class="absolute right-0 top-full z-30 mt-1 min-w-[200px] rounded-lg border border-border bg-secondary shadow-lg"
+          role="menu"
+        >
+          {#if $searchEngineList && $searchEngineList.length}
+            {#each $searchEngineList as engine}
+              <button
+                class="flex w-full items-center px-3 py-2.5 text-sm hover:bg-black/10"
+                class:bg-black-10={$selectedSearchEngine === engine}
+                on:click|stopPropagation={() => selectSearchEngine(engine)}
+              >
+                {engine}
+              </button>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Model selector -->
+    <div class="relative" data-cp-dropdown>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80 max-w-[180px]"
+        aria-expanded={openDropdown === "model"}
+        on:click|stopPropagation={() => toggle("model")}
+      >
+        <span class="truncate">{$selectedModel || "Select model"}</span>
+        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+      </button>
+      {#if openDropdown === "model"}
+        <div
+          class="absolute right-0 top-full z-30 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
+          role="menu"
+        >
+          {#if $modelList}
+            {#each Object.entries($modelList) as [providerName, providerModels]}
+              {#if providerModels && providerModels.length}
+                <div class="border-b border-border last:border-b-0">
+                  <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+                    {providerName.toLowerCase()}
+                  </div>
+                  {#each providerModels as model}
                     <button
-                      class="relative nav-button flex text-start text-sm text-clip hover:bg-black/20 px-2 py-1.5 rounded-md transition-colors 
-                      {selectedModel == models[0] ? 'bg-gray-300': ''}"
-                      on:click|preventDefault={() => selectModel(models[0])}
+                      class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
+                      class:bg-black-10={$selectedModel === model[0]}
+                      on:click|stopPropagation={() => selectModel(model[0])}
                     >
-                      {models[0]}
-                      <span class="tooltip text-[10px] px-2 text-gray-500"
-                        >{models[1]}</span
-                      >
+                      <span class="font-medium">{model[0]}</span>
+                      <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
                     </button>
                   {/each}
                 </div>
-              </div>
+              {/if}
             {/each}
-          </div>
-        {/if}
-      </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
-</div>
+
+  <!-- Mobile right cluster: just internet + model in a compact menu -->
+  <div class="flex md:hidden items-center gap-2" data-cp-dropdown>
+    <div class="flex items-center gap-1 text-xs text-tertiary">
+      <span
+        class="size-2 rounded-full"
+        class:online={$internet}
+        class:offline={!$internet}
+      ></span>
+    </div>
+    <button
+      type="button"
+      class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[40vw]"
+      aria-expanded={openDropdown === "model"}
+      on:click|stopPropagation={() => toggle("model")}
+    >
+      <span class="truncate">{$selectedModel || "Model"}</span>
+      <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
+    </button>
+    {#if openDropdown === "model"}
+      <div
+        class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
+        role="menu"
+      >
+        {#if $modelList}
+          {#each Object.entries($modelList) as [providerName, providerModels]}
+            {#if providerModels && providerModels.length}
+              <div class="border-b border-border last:border-b-0">
+                <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+                  {providerName.toLowerCase()}
+                </div>
+                {#each providerModels as model}
+                  <button
+                    class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
+                    on:click|stopPropagation={() => selectModel(model[0])}
+                  >
+                    <span class="font-medium">{model[0]}</span>
+                    <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+    {/if}
+  </div>
+</header>
 
 <style>
-  .tooltip {
-    font-size: 10px;
-    background-color: black;
-    color: white;
-    text-align: center;
-    border-radius: 100px;
-    padding: 5px 10px;
-    position: absolute;
-    z-index: 1;
-    opacity: 0;
-    top: -20px;
-    right: 0;
-    transition: opacity 0.3s;
-  }
-  .nav-button:hover .tooltip {
-    visibility: visible;
-    opacity: 1;
-  }
-
-  @keyframes roll {
-    0% {
-      transform: translateY(-5%);
-    }
-    100% {
-      transform: translateY(0);
-    }
-  }
-
   .online {
     background-color: #22c55e;
   }
-
   .offline {
     background-color: #ef4444;
   }
-
-  .token-count-animation {
-    display: inline-block;
-    animation: roll 0.5s ease-in-out;
-  }
-
-  .control-panel {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .control-panel > *:not(:first-child) {
-    margin-left: 20px;
+  .bg-black-10 {
+    background-color: rgba(0, 0, 0, 0.1);
   }
 </style>

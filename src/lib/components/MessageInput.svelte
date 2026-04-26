@@ -4,9 +4,11 @@
   import { agentState, messages, isSending } from "$lib/store";
   import { calculateTokens } from "$lib/token";
   import { onMount } from "svelte";
-  import { Icons } from "../icons";
+  import { Icons } from "$lib/icons";
 
   let inference_time = 0;
+  let messageInput = "";
+  let tokenCount = 0;
 
   agentState.subscribe((value) => {
     if (value !== null && value.agent_is_active == false) {
@@ -17,9 +19,6 @@
     }
   });
 
-  let messageInput = "";
-
-  // Function to escape HTML
   function escapeHTML(input) {
     const map = {
       "&": "&amp;",
@@ -28,21 +27,19 @@
       '"': "&quot;",
       "'": "&#039;",
     };
-    return input.replace(/[&<>"']/g, function (m) {
-      return map[m];
-    });
+    return input.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   async function handleSendMessage() {
     const projectName = localStorage.getItem("selectedProject");
     const selectedModel = localStorage.getItem("selectedModel");
-    const serachEngine = localStorage.getItem("selectedSearchEngine");
+    const searchEngine = localStorage.getItem("selectedSearchEngine");
 
-    if (!projectName) {
+    if (!projectName || projectName === "select project") {
       alert("Please select a project first!");
       return;
     }
-    if (!selectedModel) {
+    if (!selectedModel || selectedModel === "select model") {
       alert("Please select a model first!");
       return;
     }
@@ -50,20 +47,21 @@
     const sanitizedMessage = DOMPurify.sanitize(messageInput);
     const escapedMessage = escapeHTML(sanitizedMessage);
 
-
-    if (messageInput.trim() !== "" && escapedMessage.trim() !== "" && isSending) {
+    if (messageInput.trim() !== "" && escapedMessage.trim() !== "") {
       $isSending = true;
       emitMessage("user-message", {
         message: escapedMessage,
         base_model: selectedModel,
         project_name: projectName,
-        search_engine: serachEngine,
+        search_engine: searchEngine,
       });
       messageInput = "";
+      tokenCount = 0;
     }
   }
+
   onMount(() => {
-    socketListener("inference", function (data) {
+    socketListener("inference", (data) => {
       if (data["type"] == "time") {
         inference_time = data["elapsed_time"];
       }
@@ -71,39 +69,41 @@
   });
 
   function setTokenSize(event) {
-    const prompt = event.target.value;
-    let tokens = calculateTokens(prompt);
-    document.querySelector(".token-count").textContent = `${tokens}`;
+    tokenCount = calculateTokens(event.target.value);
   }
 </script>
 
-<div class="flex flex-col gap-2">
-  <div class="flex gap-4 justify-between">
-    <div class="px-1 rounded-md text-xs">
-      Agent status:
+<div
+  class="flex flex-col gap-1 border-t border-border bg-background px-2 py-2 md:px-4 md:py-3"
+>
+  <!-- Status row: agent state, inference time, token count -->
+  <div class="flex items-center justify-between gap-2 text-[11px] text-tertiary px-1">
+    <div>
+      <span>Agent:</span>
       {#if $agentState !== null}
         {#if $agentState.agent_is_active}
-          <span class="text-green-500">Active</span>
+          <span class="text-green-500 font-medium">Active</span>
         {:else}
-          <span class="text-orange-600">Inactive</span>
+          <span class="text-orange-500 font-medium">Inactive</span>
         {/if}
       {:else}
-        Deactive
+        <span>Idle</span>
       {/if}
     </div>
-    <!-- {#if $agentState !== null} -->
-    <div class="px-1 rounded-md text-xs">
-      Model Inference: <span class="text-orange-600">{inference_time} sec</span>
+    <div class="flex items-center gap-3">
+      <span>Inference: <span class="text-orange-500 font-medium">{inference_time}s</span></span>
+      <span>Tokens: <span class="text-foreground font-medium">{tokenCount}</span></span>
     </div>
-    <!-- {/if} -->
   </div>
 
-  <div class="expandable-input relative">
+  <!-- Full-width input + send button -->
+  <div class="relative flex items-end w-full">
     <textarea
       id="message-input"
-      class="w-full p-4 font-medium focus:text-foreground rounded-xl outline-none h-28 pr-20 bg-secondary
-    {$isSending ? 'cursor-not-allowed' : ''}"
-      placeholder="Type your message..."
+      class="w-full resize-none rounded-2xl border border-border bg-secondary px-4 py-3 pr-14 text-sm text-foreground placeholder:text-tertiary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary
+        {$isSending ? 'cursor-not-allowed opacity-60' : ''}"
+      placeholder="Type your message…"
+      rows="1"
       disabled={$isSending}
       bind:value={messageInput}
       on:input={setTokenSize}
@@ -111,28 +111,25 @@
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
           handleSendMessage();
-          document.querySelector(".token-count").textContent = 0;
         }
       }}
     ></textarea>
     <button
+      type="button"
+      aria-label="Send message"
       on:click={handleSendMessage}
-      disabled={$isSending}
-      class="absolute text-secondary bg-primary p-2 right-4 bottom-6 rounded-full
-    {$isSending ? 'cursor-not-allowed' : ''}"
+      disabled={$isSending || !messageInput.trim()}
+      class="absolute right-2 bottom-2 flex size-9 items-center justify-center rounded-full bg-primary text-secondary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {@html Icons.CornerDownLeft}
+      <span class="[&_svg]:size-4">{@html Icons.CornerDownLeft}</span>
     </button>
-    <p class="absolute text-tertiary p-2 right-4 top-2">
-      <span class="token-count">0</span>
-    </p>
   </div>
 </div>
 
 <style>
-  .expandable-input textarea {
-    min-height: 60px;
+  textarea {
+    min-height: 48px;
     max-height: 200px;
-    resize: none;
+    field-sizing: content;
   }
 </style>
