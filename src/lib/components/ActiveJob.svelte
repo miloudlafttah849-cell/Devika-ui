@@ -24,7 +24,11 @@
   // Track last-seen monologue / command so we don't re-add duplicates.
   let prevMonologue = "";
   let prevCmd = "";
-  let prevGitTs = 0;
+  // Number of $gitEvents already mapped into `lines`. Indexing by count is
+  // robust against multiple events arriving within the same millisecond
+  // (Date.now() collisions); a timestamp comparison would silently drop
+  // the second of two same-ms events.
+  let prevGitCount = 0;
 
   function pushLine(kind, text, sub = "") {
     const entry = { id: nextId++, kind, text, sub, ts: Date.now() };
@@ -46,11 +50,14 @@
     }
   }
 
-  // React to git events.
-  $: if ($gitEvents && $gitEvents.length) {
-    for (const ev of $gitEvents) {
-      if (!ev || !ev.ts || ev.ts <= prevGitTs) continue;
-      prevGitTs = ev.ts;
+  // React to git events. We consume strictly the *new* slice since the
+  // last reactive run, by index — never by timestamp — so two events with
+  // the same Date.now() value are both mapped.
+  $: if ($gitEvents && $gitEvents.length > prevGitCount) {
+    const fresh = $gitEvents.slice(prevGitCount);
+    prevGitCount = $gitEvents.length;
+    for (const ev of fresh) {
+      if (!ev) continue;
       const map = {
         "clone-start": ["clone", `Cloning ${ev.url || ""}`],
         "clone-done": ["clone", `Cloned · HEAD ${ev.head || "?"}`],
