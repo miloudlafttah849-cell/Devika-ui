@@ -10,6 +10,7 @@
   import EditorWidget from "$lib/components/EditorWidget.svelte";
   import GitWidget from "$lib/components/GitWidget.svelte";
   import PaneToggle from "$lib/components/PaneToggle.svelte";
+  import ActiveJob from "$lib/components/ActiveJob.svelte";
 
   import { serverStatus, panesVisible, activePane, isDesktop } from "$lib/store";
   import { initializeSockets, destroySockets } from "$lib/sockets";
@@ -93,6 +94,9 @@
       </section>
     {/if}
   </main>
+
+  <!-- Devin-style "working…" stream. Auto-hides when idle. -->
+  <ActiveJob />
 
   <!-- Pane toggle strip — sits above the message input, full-width. -->
   <PaneToggle />

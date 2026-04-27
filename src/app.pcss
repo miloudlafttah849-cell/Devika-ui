@@ -1,137 +1,182 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
- 
+
+/*
+ * Color tokens — Devin-inspired flat dark theme.
+ *
+ * Greyscale only. No saturated accent colors on chrome — we reserve any
+ * tint for explicit semantic states (error / success). The two themes
+ * (light vs .dark) are kept structurally identical so token consumers
+ * never branch on theme.
+ */
 @layer base {
   :root {
-    --primary: #2F3337;
+    --primary: #1f1f22;
     --background: #ffffff;
-    --secondary: #f1f2f5;
-    --tertiary: #919AA3;
+    --secondary: #f5f5f5;
+    --tertiary: #6e6e76;
 
-    --foreground: #303438;
+    --foreground: #1a1a1d;
     --foreground-invert: #ffffff;
-    --foreground-light: #9CA3AB;
-    --foreground-secondary: #9CA3AB;
+    --foreground-light: #2c2c30;
+    --foreground-secondary: #6e6e76;
 
-    --btn: #2F3337;
+    --btn: #1a1a1d;
     --btn-active: #000000;
 
-    --border: #E4E3E8;
-    --seperator: #E4E3E8;
+    --border: #e8e8ea;
+    --seperator: #e8e8ea;
 
-    --window-outline: #E4E3E8;
-    
-    --browser-window-dots: #E4E3E8;
-    --browser-window-search: #F7F8FA;
+    --window-outline: #e8e8ea;
+
+    --browser-window-dots: #e8e8ea;
+    --browser-window-search: #f5f5f5;
     --browser-window-ribbon: #ffffff;
-    --browser-window-foreground: #303438;
-    --browser-window-background: #F7F8FA;
-    
-    --terminal-window-dots: #E4E3E8;
+    --browser-window-foreground: #1a1a1d;
+    --browser-window-background: #fafafa;
+
+    --terminal-window-dots: #e8e8ea;
     --terminal-window-ribbon: #ffffff;
-    --terminal-window-background: #F7F8FA;
-    --terminal-window-foreground: #313336;
+    --terminal-window-background: #fafafa;
+    --terminal-window-foreground: #1a1a1d;
 
-    --slider-empty: #9CA3AB;
-    --slider-filled: #2F3337;
-    --slider-thumb: #303438;
+    --slider-empty: #e8e8ea;
+    --slider-filled: #1a1a1d;
+    --slider-thumb: #1a1a1d;
 
-    --monologue-background: #F1F3F5;
-    --monologue-outline: #B2BAC2;
+    --monologue-background: #f5f5f5;
+    --monologue-outline: #e8e8ea;
   }
-  .dark{
-      --primary: #ECECEC;
-      --background: #1D1F21;
-      --secondary: #2F3337;
-      --tertiary: #81878C;
-  
-      --foreground: #dcdcdc;
-      --foreground-invert: #1D1F21;
-      --foreground-light: #E6E9EB;
-      --foreground-secondary: #9CA3AB;
+  .dark {
+    /* Devin-style dark — near-black canvas, hairline borders, soft text. */
+    --primary: #ededee;
+    --background: #0e0e10;
+    --secondary: #18181b;
+    --tertiary: #6e6e76;
 
-      --btn: #ECECEC;
-      --btn-active: #ffffff;
-  
-      --border: #2B2F34;
-      --seperator: #495058;
-  
-      --window-outline: #4E555D;
-      
-      --browser-window-dots: #191C1E;
-      --browser-window-search: #1D2124;
-      --browser-window-ribbon: #292E32;
-      --browser-window-foreground: #DDDFE1;
-      --browser-window-background: #111315;
+    --foreground: #ededee;
+    --foreground-invert: #0e0e10;
+    --foreground-light: #c5c5c8;
+    --foreground-secondary: #8a8a92;
 
-      --terminal-window-dots: #191C1E;
-      --terminal-window-ribbon: #292E32;
-      --terminal-window-background: #111315;
-      --terminal-window-foreground: #9CA3AB;
+    --btn: #ededee;
+    --btn-active: #ffffff;
 
-      --slider-empty: #2F3337;
-      --slider-filled: #81878C;
-      --slider-thumb: #ffffff;
-  
-      --monologue-background: #242729;
-      --monologue-outline: #464C51;
+    --border: #232327;
+    --seperator: #232327;
+
+    --window-outline: #2a2a2e;
+
+    --browser-window-dots: #232327;
+    --browser-window-search: #131316;
+    --browser-window-ribbon: #18181b;
+    --browser-window-foreground: #ededee;
+    --browser-window-background: #0e0e10;
+
+    --terminal-window-dots: #232327;
+    --terminal-window-ribbon: #18181b;
+    --terminal-window-background: #0e0e10;
+    --terminal-window-foreground: #c5c5c8;
+
+    --slider-empty: #232327;
+    --slider-filled: #ededee;
+    --slider-thumb: #ffffff;
+
+    --monologue-background: #131316;
+    --monologue-outline: #232327;
   }
 }
- 
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  
-  /* Styling for scrollbar */
 
-  /* WebKit (Chrome, Safari) */
+  /* Scrollbar — thin, neutral, matches surface. */
   *::-webkit-scrollbar {
-    width: 5px;
-    height: 2px
+    width: 6px;
+    height: 6px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #999797;
-    border-radius: 0.5rem;
+    background: var(--border);
+    border-radius: 999px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-  } 
+    background: var(--tertiary);
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-  /* firefox  */
   @-moz-document url-prefix() {
-  :global(*) {
-    scrollbar-width: thin;
-    scrollbar-color: #999797 #FFFFFF;
-  }
-
-  :global(*::-moz-scrollbar) {
-    width: 5px;
-  }
-
-  :global(*::-moz-scrollbar-thumb) {
-    background: #999797;
-    border-radius: 0.5rem;
-  }
-
-  :global(*::-moz-scrollbar-thumb:hover) {
-    background: #6b7280;
+    :global(*) {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
   }
 }
 
-  /* Internet Explorer/Edge */
-  :global(*::-ms-scrollbar) {
-    width: 5px;
+@layer components {
+  /*
+   * Devin-style "working" stream:
+   * each tool/action line dims slightly, the live (most recent) line
+   * pulses. Use `.devin-stream-line` on the container, `.is-live` on
+   * the freshest entry.
+   */
+  .devin-stream-line {
+    @apply text-xs text-foreground-secondary leading-relaxed;
+    font-variant-numeric: tabular-nums;
   }
-  :global(*::-ms-scrollbar-thumb) {
-    background: #999797;
-    border-radius: 0.5rem;
+  .devin-stream-line.is-live {
+    @apply text-foreground-light;
+    animation: devin-pulse 1.6s ease-in-out infinite;
   }
-  :global(*::-ms-scrollbar-thumb:hover) {
-    background: #6b7280;
+  @keyframes devin-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /* Mono token used for tool names / file paths in the stream. */
+  .devin-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.72rem;
+  }
+
+  /* Flat dropdown trigger — text-only, no border, no chevron. */
+  .devin-trigger {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 h-8 text-sm text-foreground-light
+           hover:text-foreground transition-colors;
+    background: transparent;
+  }
+  .devin-trigger[aria-expanded="true"] {
+    @apply text-foreground bg-secondary;
+  }
+
+  /* Dropdown menu surface. */
+  .devin-menu {
+    @apply rounded-lg border border-border bg-secondary shadow-xl
+           text-sm text-foreground;
+    backdrop-filter: blur(8px);
+  }
+  .devin-menu-row {
+    @apply flex w-full items-center gap-2 px-3 py-2 text-left transition-colors;
+  }
+  .devin-menu-row:hover {
+    background: color-mix(in srgb, var(--background) 60%, transparent);
+  }
+  .devin-menu-row.is-selected {
+    background: color-mix(in srgb, var(--background) 40%, transparent);
   }
 }

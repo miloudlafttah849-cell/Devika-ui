@@ -80,9 +80,7 @@
   }
 
   // Subscribe to serverStatus so we kick off the initial fetch the moment the
-  // parent +page.svelte confirms the backend is reachable. Doing this in
-  // onMount with a one-shot `if ($serverStatus)` check races with the parent's
-  // async checkServerStatus() and the dropdowns end up empty on first paint.
+  // parent +page.svelte confirms the backend is reachable.
   let dataLoaded = false;
   const unsubServer = serverStatus.subscribe(async (online) => {
     if (online && !dataLoaded) {
@@ -90,17 +88,13 @@
       try {
         await fetchInitialData();
       } catch (e) {
-        // Allow a retry on the next serverStatus toggle (transient errors).
         dataLoaded = false;
         console.error("fetchInitialData failed:", e);
       }
     }
   });
 
-  // After modelList loads, drop any stale localStorage selection that no
-  // longer matches a current provider/model id. Otherwise the agent will
-  // crash server-side with "Model X not supported" the moment the user
-  // sends a message (e.g. after Groq decommissions an old llama model).
+  // Drop stale localStorage selection that no longer matches a current model id.
   $: if ($modelList && Object.keys($modelList).length > 0) {
     const validIds = Object.values($modelList)
       .flat()
@@ -109,6 +103,13 @@
       console.warn(`Stale selectedModel "${$selectedModel}" not in current modelList; clearing.`);
       $selectedModel = "select model";
     }
+  }
+
+  // Pretty-print: lower-case sentinels look ugly in the trigger.
+  function display(value, fallback) {
+    if (!value) return fallback;
+    if (typeof value === "string" && value.toLowerCase().startsWith("select ")) return fallback;
+    return value;
   }
 
   onMount(() => {
@@ -121,15 +122,15 @@
 </script>
 
 <header
-  class="flex items-center justify-between gap-2 border-b border-border bg-background px-2 py-2 md:px-4 md:py-3"
+  class="flex items-center justify-between gap-2 border-b border-border bg-background px-2 py-2 md:px-4 md:py-2.5"
 >
   <!-- Left cluster: hamburger (mobile) + project picker -->
-  <div class="flex items-center gap-2 min-w-0">
+  <div class="flex items-center gap-1 min-w-0">
     <!-- Mobile hamburger -->
     <button
       type="button"
       aria-label="Open menu"
-      class="lg:hidden flex size-9 items-center justify-center rounded-md text-foreground hover:bg-secondary [&_svg]:size-5"
+      class="lg:hidden flex size-9 items-center justify-center rounded-md text-foreground-light hover:text-foreground hover:bg-secondary [&_svg]:size-5"
       on:click={() => sidebarOpen.set(true)}
     >
       {@html Icons.Menu}
@@ -139,36 +140,38 @@
     <div class="relative min-w-0" data-cp-dropdown>
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80 max-w-[60vw] sm:max-w-none"
+        class="devin-trigger truncate max-w-[58vw] sm:max-w-[40vw]"
         aria-expanded={openDropdown === "project"}
         on:click|stopPropagation={() => toggle("project")}
       >
-        <span class="truncate font-medium">{$selectedProject || "Select project"}</span>
-        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+        <span class="truncate">{display($selectedProject, "Project")}</span>
       </button>
       {#if openDropdown === "project"}
         <div
-          class="absolute left-0 top-full z-30 mt-1 min-w-[220px] max-h-80 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
+          class="devin-menu absolute left-0 top-full z-30 mt-1 min-w-[240px] max-h-80 overflow-y-auto"
           role="menu"
         >
           <button
-            class="flex w-full items-center gap-2 border-b border-border px-3 py-2.5 text-sm hover:bg-black/10"
+            class="devin-menu-row border-b border-border"
             on:click|stopPropagation={createNewProject}
           >
-            <span class="[&_svg]:size-4">{@html Icons.Plus}</span>
-            New project
+            <span class="[&_svg]:size-3.5 text-foreground-secondary">{@html Icons.Plus}</span>
+            <span>New project</span>
           </button>
           {#if $projectList && $projectList.length}
             {#each $projectList as project}
-              <div class="flex items-center gap-2 px-3 hover:bg-black/10">
+              <div
+                class="devin-menu-row group"
+                class:is-selected={$selectedProject === project}
+              >
                 <button
-                  class="flex-1 truncate py-2.5 text-left text-sm"
+                  class="flex-1 truncate text-left"
                   on:click|stopPropagation={() => selectProject(project)}
                 >
                   {project}
                 </button>
                 <button
-                  class="text-tertiary hover:text-red-500 [&_svg]:size-4"
+                  class="opacity-0 group-hover:opacity-100 text-foreground-secondary hover:text-red-400 [&_svg]:size-3.5 transition-opacity"
                   aria-label="Delete project {project}"
                   on:click|stopPropagation={() => deleteproject(project)}
                 >
@@ -177,50 +180,49 @@
               </div>
             {/each}
           {:else}
-            <p class="px-3 py-2.5 text-xs text-tertiary">No projects yet</p>
+            <p class="px-3 py-2.5 text-xs text-foreground-secondary">No projects yet</p>
           {/if}
         </div>
       {/if}
     </div>
   </div>
 
-  <!-- Right cluster: status + selectors. Hidden on mobile (collapses into ⋮ menu). -->
-  <div class="hidden md:flex items-center gap-3">
-    <!-- Internet indicator -->
-    <div class="flex items-center gap-1.5 text-xs text-tertiary">
+  <!-- Right cluster: status + selectors. Hidden on mobile (collapses into compact bar). -->
+  <div class="hidden md:flex items-center gap-1">
+    <!-- Internet indicator (text-only, no chip) -->
+    <div class="flex items-center gap-1.5 text-xs text-foreground-secondary px-2">
       <span
-        class="size-2 rounded-full"
+        class="size-1.5 rounded-full"
         class:online={$internet}
         class:offline={!$internet}
       ></span>
-      <span>{$internet ? "Online" : "Offline"}</span>
+      <span>{$internet ? "online" : "offline"}</span>
     </div>
     <!-- Token usage -->
-    <div class="text-xs text-tertiary">
-      Tokens: <span class="text-foreground font-medium">{$tokenUsage}</span>
+    <div class="text-xs text-foreground-secondary px-2 tabular-nums">
+      <span class="text-foreground-light">{$tokenUsage}</span> tokens
     </div>
 
     <!-- Search engine selector -->
     <div class="relative" data-cp-dropdown>
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80"
+        class="devin-trigger"
         aria-expanded={openDropdown === "search"}
         on:click|stopPropagation={() => toggle("search")}
       >
-        <span class="truncate">{$selectedSearchEngine || "Search engine"}</span>
-        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+        <span class="truncate">{display($selectedSearchEngine, "Search engine")}</span>
       </button>
       {#if openDropdown === "search"}
         <div
-          class="absolute right-0 top-full z-30 mt-1 min-w-[200px] rounded-lg border border-border bg-secondary shadow-lg"
+          class="devin-menu absolute right-0 top-full z-30 mt-1 min-w-[200px]"
           role="menu"
         >
           {#if $searchEngineList && $searchEngineList.length}
             {#each $searchEngineList as engine}
               <button
-                class="flex w-full items-center px-3 py-2.5 text-sm hover:bg-black/10"
-                class:bg-black-10={$selectedSearchEngine === engine}
+                class="devin-menu-row"
+                class:is-selected={$selectedSearchEngine === engine}
                 on:click|stopPropagation={() => selectSearchEngine(engine)}
               >
                 {engine}
@@ -235,37 +237,36 @@
     <div class="relative" data-cp-dropdown>
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md bg-secondary px-3 h-9 text-sm text-foreground hover:bg-secondary/80 max-w-[180px]"
+        class="devin-trigger truncate max-w-[200px]"
         aria-expanded={openDropdown === "model"}
         on:click|stopPropagation={() => toggle("model")}
       >
-        <span class="truncate">{$selectedModel || "Select model"}</span>
-        <span class="text-tertiary [&_svg]:size-4">{@html Icons.ChevronDown}</span>
+        <span class="truncate">{display($selectedModel, "Model")}</span>
       </button>
       {#if openDropdown === "model"}
         <div
-          class="absolute right-0 top-full z-30 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg"
+          class="devin-menu absolute right-0 top-full z-30 mt-1 w-72 max-h-96 overflow-y-auto"
           role="menu"
         >
           {#if !$modelList || Object.keys($modelList).length === 0}
-            <p class="px-3 py-3 text-xs text-tertiary">
+            <p class="px-3 py-3 text-xs text-foreground-secondary">
               {$serverStatus ? "Loading models…" : "Connecting to server…"}
             </p>
           {:else}
             {#each Object.entries($modelList) as [providerName, providerModels]}
               {#if providerModels && providerModels.length}
                 <div class="border-b border-border last:border-b-0">
-                  <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+                  <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-foreground-secondary">
                     {providerName.toLowerCase()}
                   </div>
                   {#each providerModels as model}
                     <button
-                      class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
-                      class:bg-black-10={$selectedModel === model[0]}
+                      class="devin-menu-row flex-col items-start"
+                      class:is-selected={$selectedModel === model[0]}
                       on:click|stopPropagation={() => selectModel(model[0])}
                     >
-                      <span class="font-medium">{model[0]}</span>
-                      <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
+                      <span class="text-foreground">{model[0]}</span>
+                      <span class="text-[11px] text-foreground-secondary truncate w-full text-left devin-mono">{model[1]}</span>
                     </button>
                   {/each}
                 </div>
@@ -277,11 +278,11 @@
     </div>
   </div>
 
-  <!-- Mobile right cluster: internet + search engine + model -->
-  <div class="flex md:hidden items-center gap-2">
-    <div class="flex items-center gap-1 text-xs text-tertiary">
+  <!-- Mobile right cluster: internet + search engine + model (compact) -->
+  <div class="flex md:hidden items-center gap-0.5">
+    <div class="flex items-center gap-1 text-xs text-foreground-secondary px-1">
       <span
-        class="size-2 rounded-full"
+        class="size-1.5 rounded-full"
         class:online={$internet}
         class:offline={!$internet}
       ></span>
@@ -291,27 +292,26 @@
     <div class="relative" data-cp-dropdown>
       <button
         type="button"
-        class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[28vw]"
+        class="devin-trigger truncate max-w-[28vw] text-xs"
         aria-expanded={openDropdown === "search"}
         on:click|stopPropagation={() => toggle("search")}
       >
-        <span class="truncate">{$selectedSearchEngine || "Search"}</span>
-        <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
+        <span class="truncate">{display($selectedSearchEngine, "Search")}</span>
       </button>
       {#if openDropdown === "search"}
         <div
-          class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
+          class="devin-menu fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto md:hidden"
           role="menu"
         >
           {#if !$searchEngineList || $searchEngineList.length === 0}
-            <p class="px-3 py-3 text-xs text-tertiary">
+            <p class="px-3 py-3 text-xs text-foreground-secondary">
               {$serverStatus ? "Loading search engines…" : "Connecting to server…"}
             </p>
           {:else}
             {#each $searchEngineList as engine}
               <button
-                class="flex w-full items-center px-3 py-2.5 text-sm hover:bg-black/10"
-                class:bg-black-10={$selectedSearchEngine === engine}
+                class="devin-menu-row"
+                class:is-selected={$selectedSearchEngine === engine}
                 on:click|stopPropagation={() => selectSearchEngine(engine)}
               >
                 {engine}
@@ -326,36 +326,36 @@
     <div class="relative" data-cp-dropdown>
       <button
         type="button"
-        class="flex items-center gap-1 rounded-md bg-secondary px-2 h-9 text-xs text-foreground hover:bg-secondary/80 max-w-[40vw]"
+        class="devin-trigger truncate max-w-[40vw] text-xs"
         aria-expanded={openDropdown === "model"}
         on:click|stopPropagation={() => toggle("model")}
       >
-        <span class="truncate">{$selectedModel || "Model"}</span>
-        <span class="text-tertiary [&_svg]:size-3">{@html Icons.ChevronDown}</span>
+        <span class="truncate">{display($selectedModel, "Model")}</span>
       </button>
       {#if openDropdown === "model"}
         <div
-          class="fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-secondary shadow-lg md:hidden"
+          class="devin-menu fixed left-2 right-2 top-14 z-30 max-h-[70vh] overflow-y-auto md:hidden"
           role="menu"
         >
           {#if !$modelList || Object.keys($modelList).length === 0}
-            <p class="px-3 py-3 text-xs text-tertiary">
+            <p class="px-3 py-3 text-xs text-foreground-secondary">
               {$serverStatus ? "Loading models…" : "Connecting to server…"}
             </p>
           {:else}
             {#each Object.entries($modelList) as [providerName, providerModels]}
               {#if providerModels && providerModels.length}
                 <div class="border-b border-border last:border-b-0">
-                  <div class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
+                  <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-foreground-secondary">
                     {providerName.toLowerCase()}
                   </div>
                   {#each providerModels as model}
                     <button
-                      class="flex w-full flex-col items-start px-3 py-2 text-sm hover:bg-black/10"
+                      class="devin-menu-row flex-col items-start"
+                      class:is-selected={$selectedModel === model[0]}
                       on:click|stopPropagation={() => selectModel(model[0])}
                     >
-                      <span class="font-medium">{model[0]}</span>
-                      <span class="text-[11px] text-tertiary truncate w-full text-left">{model[1]}</span>
+                      <span class="text-foreground">{model[0]}</span>
+                      <span class="text-[11px] text-foreground-secondary truncate w-full text-left devin-mono">{model[1]}</span>
                     </button>
                   {/each}
                 </div>
@@ -375,8 +375,5 @@
   }
   .offline {
     background-color: #ef4444;
-  }
-  .bg-black-10 {
-    background-color: rgba(0, 0, 0, 0.1);
   }
 </style>
