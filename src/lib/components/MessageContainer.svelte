@@ -1,6 +1,7 @@
 <script>
   import { messages } from "$lib/store";
   import { afterUpdate } from "svelte";
+  import DOMPurify from "dompurify";
 
   let messageContainer;
 
@@ -29,6 +30,41 @@
     } catch {
       return null;
     }
+  }
+
+  // HTML-escape so content rendered via {@html} can never break out of
+  // the surrounding tag context. Order matters: amp first.
+  function escapeHTML(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Linkify on a *pre-escaped* string. Because the string is already
+  // escaped, any quote inside a URL appears as `&quot;` and cannot break
+  // out of the href attribute — closing the XSS vector.
+  // Strip a trailing `&quot;` / `&#39;` etc. that the regex's greedy
+  // [^\s]+ would otherwise pull into the URL.
+  function linkify(escaped) {
+    return escaped.replace(/(https?:\/\/[^\s<]+)/g, (m) => {
+      const trail = m.match(/(&[a-z#0-9]+;|[.,;:!?)\]])+$/i);
+      const tail = trail ? trail[0] : "";
+      const url = tail ? m.slice(0, -tail.length) : m;
+      return `<a class="underline hover:text-foreground-light" href="${url}" target="_blank" rel="noopener">${url}</a>${tail}`;
+    });
+  }
+
+  // Final defence: pipe everything through DOMPurify even though the
+  // escape+linkify pair is already safe. Cheap, and means any future
+  // change to the rendering branch can't reintroduce a vector.
+  function renderHTML(raw) {
+    return DOMPurify.sanitize(linkify(escapeHTML(raw)), {
+      ALLOWED_TAGS: ["a", "br", "code", "strong", "em"],
+      ALLOWED_ATTR: ["href", "target", "rel", "class"],
+    });
   }
 </script>
 
@@ -68,19 +104,15 @@
                   {/each}
                 </ol>
               </div>
-            {:else if /https?:\/\/[^\s]+/.test(message.message)}
-              <div class="prose-devin" contenteditable="false">
-                {@html message.message.replace(
-                  /(https?:\/\/[^\s]+)/g,
-                  '<a class="underline hover:text-foreground-light" href="$1" target="_blank" rel="noopener">$1</a>'
-                )}
-              </div>
             {:else}
+              <!-- All inbound message content goes through escapeHTML →
+                   linkify → DOMPurify before {@html}. -->
               <div
                 class="prose-devin whitespace-pre-wrap"
                 contenteditable="false"
-                bind:innerHTML={message.message}
-              ></div>
+              >
+                {@html renderHTML(message.message)}
+              </div>
             {/if}
           </div>
         </article>
