@@ -18,6 +18,18 @@
     const d = new Date(ts);
     return isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
+
+  // Safe JSON parse — return null on failure so the renderer can fall back
+  // to plain-text instead of crashing the entire message list. The backend
+  // sometimes streams partial JSON or a message that just happens to start
+  // with `{`.
+  function tryParseJSON(s) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  }
 </script>
 
 <div
@@ -41,12 +53,12 @@
           </header>
 
           <div class="text-sm leading-relaxed text-foreground">
-            {#if message.from_devika && message.message.startsWith("{")}
+            {#if message.from_devika && message.message.startsWith("{") && tryParseJSON(message.message)}
               <!-- Plan render: numbered checklist. -->
               <div class="flex flex-col gap-3" contenteditable="false">
                 <strong class="text-foreground-light">Step-by-step plan</strong>
                 <ol class="flex flex-col gap-2 list-none">
-                  {#each Object.entries(JSON.parse(message.message)) as [step, description]}
+                  {#each Object.entries(tryParseJSON(message.message)) as [step, description]}
                     <li class="flex items-start gap-2">
                       <span class="devin-mono text-foreground-secondary shrink-0 pt-0.5">
                         {String(step).padStart(2, "0")}

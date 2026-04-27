@@ -105,10 +105,14 @@
     }
   }
 
-  // Pretty-print: lower-case sentinels look ugly in the trigger.
+  // Pretty-print: hide the lower-case sentinel placeholders the store sets
+  // before a real value loads ("select project", "select model", ...).
+  // Match against an exact list so a legitimate user-named project like
+  // "Selection Pipeline" still renders correctly.
+  const SENTINELS = new Set(["select project", "select model", "select search engine"]);
   function display(value, fallback) {
     if (!value) return fallback;
-    if (typeof value === "string" && value.toLowerCase().startsWith("select ")) return fallback;
+    if (typeof value === "string" && SENTINELS.has(value.toLowerCase())) return fallback;
     return value;
   }
 
