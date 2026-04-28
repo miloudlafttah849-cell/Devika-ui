@@ -33,7 +33,10 @@
 
 <main class="h-dvh w-full overflow-hidden">
   <Toaster richColors />
-  <ModeWatcher />
+  <!-- Default to dark so first paint matches the new Devin-style theme,
+       but keep the existing Settings → Appearance → Theme selector working
+       (it toggles `.dark` on <html> via mode-watcher). -->
+  <ModeWatcher defaultMode="dark" />
 
   <div class="flex h-full w-full">
     <!-- Sidebar: hidden on mobile (<lg), shown as a slim rail on desktop.

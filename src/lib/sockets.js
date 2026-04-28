@@ -1,16 +1,10 @@
 import { socket } from "./api";
 import { messages, agentState, isSending, tokenUsage, gitEvents } from "./store";
 import { toast } from "svelte-sonner";
-import { get } from "svelte/store";
-
-let prevMonologue = null;
 
 export function initializeSockets() {
 
   socket.connect();
-  
-  let state = get(agentState);
-  prevMonologue = state?.internal_monologue;
 
   socket.emit("socket_connect", { data: "frontend connected!" });
   socket.on("socket_response", function (msg) {
@@ -56,29 +50,16 @@ export function initializeSockets() {
 
   socket.on("git", function (payload) {
     gitEvents.update((evts) => [...evts, { ...payload, ts: Date.now() }]);
-    if (payload?.event === "pr-opened" && payload.url) {
-      toast.success(`PR opened: ${payload.url}`);
-    } else if (payload?.event === "clone-error" || payload?.event === "error" || payload?.event === "pr-error") {
+    // Errors stay as toasts (modal-style attention). Successes are now
+    // surfaced inline by the ActiveJob streaming block.
+    if (payload?.event === "clone-error" || payload?.event === "error" || payload?.event === "pr-error") {
       toast.error(payload.error || "Git operation failed");
     }
   });
 
-  
-  agentState.subscribe((state) => {
-    function handleMonologueChange(newValue) {
-      if (newValue) {
-        toast(newValue);
-      }
-    }
-    if (
-      state &&
-      state.internal_monologue &&
-      state.internal_monologue !== prevMonologue
-    ) {
-      handleMonologueChange(state.internal_monologue);
-      prevMonologue = state.internal_monologue;
-    }
-  });
+  // NOTE: internal_monologue updates are no longer toasted — the ActiveJob
+  // streaming block renders them inline above the message input. Toasts
+  // were noisy on multi-step runs.
 }
 
 export function destroySockets() {
