@@ -52,7 +52,12 @@
 
   // React to git events. We consume strictly the *new* slice since the
   // last reactive run, by index — never by timestamp — so two events with
-  // the same Date.now() value are both mapped.
+  // the same Date.now() value are both mapped. If the store is reset
+  // (GitWidget "Clear log") we resync the cursor so the next batch isn't
+  // silently dropped.
+  $: if ($gitEvents) {
+    if ($gitEvents.length < prevGitCount) prevGitCount = 0;
+  }
   $: if ($gitEvents && $gitEvents.length > prevGitCount) {
     const fresh = $gitEvents.slice(prevGitCount);
     prevGitCount = $gitEvents.length;
